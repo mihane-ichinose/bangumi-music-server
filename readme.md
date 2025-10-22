@@ -81,4 +81,4 @@ The webpage is currently available locally only at: ```http://localhost:3000```,
 
 ## License
 
-MIT License – feel free to use and modify this project for personal or educational purposes.
+This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.
