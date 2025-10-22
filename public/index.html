@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MAMS - Bangumi</title>
+    <link rel="icon" href="/icon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <img src="/icon.ico" alt="Mihane Anime Music Station Logo" />
+            </div>
+            <div class="title">
+                <h1>Mihane Anime Music Station - Browse by Bangumi!</h1>
+                <p>怒りも喜びも哀しさも、全部ぶちこめ。</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div id="years" class="tabs" role="tablist" aria-label="Years"></div>
+            <div id="seasons" class="tabs" role="tablist" aria-label="Seasons"></div>
+
+            <div class="panel">
+                <div class="toolbar">
+                    <span id="pathBadge" class="badge">No selection</span>
+                    <span id="countBadge" class="badge">0 tracks</span>
+                </div>
+                <ul id="songs"></ul>
+                <div id="emptyState" class="empty hidden">No tracks here (yet).</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="player-wrap">
+        <img id="playerCover" class="player-cover" src="/default-cover.png" alt="cover" />
+        <div class="player-title">
+            <div class="now">Now Playing</div>
+            <div id="nowPlaying" class="track">
+                <span class="song-name"><span>-</span></span>
+                <span class="artist-ext">
+                    <span>
+                        <span class="artist"></span>
+                        <span class="ext-badge"></span>
+                    </span>
+                </span>
+            </div>
+        </div>
+        <audio id="player" controls></audio>
+    </div>
+
+    <script>
+        const yearsDiv = document.getElementById("years");
+        const seasonsDiv = document.getElementById("seasons");
+        const songsUl = document.getElementById("songs");
+        const player = document.getElementById("player");
+        const nowPlaying = document.getElementById("nowPlaying");
+        const songNameSpan = nowPlaying.querySelector(".song-name");
+        const artistSpan = nowPlaying.querySelector(".artist");
+        const extSpan = nowPlaying.querySelector(".ext-badge");
+        const pathBadge = document.getElementById("pathBadge");
+        const countBadge = document.getElementById("countBadge");
+        const emptyState = document.getElementById("emptyState");
+        const playerCover = document.getElementById("playerCover");
+        const originalTitle = document.title;
+
+        player.onended = () => {
+            document.title = originalTitle;
+            songNameSpan.textContent = "–";
+            artistSpan.textContent = "";
+            extSpan.textContent = "";
+            nowPlaying.classList.remove("active");
+        };
+
+        let activeYear = null;
+        let activeSeason = null;
+
+        function setActiveTab(container, el) {
+            Array.from(container.querySelectorAll(".tab")).forEach(b => b.classList.remove("active"));
+            if (el) el.classList.add("active");
+        }
+
+        function setBadges() {
+            const path = [activeYear, activeSeason].filter(Boolean).join(" / ");
+            pathBadge.textContent = path || "No selection";
+            const count = songsUl.querySelectorAll(".song").length;
+            countBadge.textContent = `${count} track${count === 1 ? "" : "s"}`;
+            emptyState.classList.toggle("hidden", count > 0);
+        }
+
+        function clearSongs() {
+            songsUl.innerHTML = "";
+            setBadges();
+        }
+
+        // Load years
+        fetch("/api/years")
+            .then(r => r.json())
+            .then(years => {
+                years.sort().forEach(y => {
+                    const btn = document.createElement("button");
+                    btn.className = "tab";
+                    btn.role = "tab";
+                    btn.textContent = y;
+                    btn.onclick = () => {
+                        activeYear = y;
+                        activeSeason = null;
+                        setActiveTab(yearsDiv, btn);
+                        loadSeasons(y);
+                        clearSongs();
+                    };
+                    yearsDiv.appendChild(btn);
+                });
+            })
+            .catch(() => {
+                yearsDiv.innerHTML = '<span class="badge" style="color:#ff9;">Failed to load years</span>';
+            });
+
+        function loadSeasons(year) {
+            seasonsDiv.innerHTML = "";
+            clearSongs();
+            fetch(`/api/seasons/${encodeURIComponent(year)}`)
+                .then(r => r.json())
+                .then(seasons => {
+                    seasons.sort().forEach(s => {
+                        const btn = document.createElement("button");
+                        btn.className = "tab";
+                        btn.role = "tab";
+                        btn.textContent = s;
+                        btn.onclick = () => {
+                            activeSeason = s;
+                            setActiveTab(seasonsDiv, btn);
+                            loadSongs(year, s);
+                        };
+                        seasonsDiv.appendChild(btn);
+                    });
+                    setBadges();
+                })
+                .catch(() => {
+                    seasonsDiv.innerHTML = '<span class="badge" style="color:#ff9;">Failed to load seasons</span>';
+                });
+        }
+
+        function loadSongs(year, season) {
+            songsUl.innerHTML = "";
+            fetch(`/api/files/${encodeURIComponent(year)}/${encodeURIComponent(season)}`)
+                .then(r => r.json())
+                .then(files => {
+                    files.forEach(f => {
+                        const li = document.createElement("li");
+                        li.className = "song";
+                        li.title = f.title;
+
+                        const cover = document.createElement("img");
+                        cover.className = "song-cover";
+                        cover.src = f.cover;
+                        cover.alt = "cover";
+
+                        const infoDiv = document.createElement("div");
+                        infoDiv.className = "song-info";
+
+                        const nameSpan = document.createElement("span");
+                        nameSpan.className = "song-title";
+                        nameSpan.textContent = f.title;
+
+                        const artistExt = document.createElement("span");
+                        artistExt.className = "artist-ext";
+
+                        const artistSpanLi = document.createElement("span");
+                        artistSpanLi.className = "song-artist";
+                        artistSpanLi.textContent = f.artist;
+
+                        const extSpanLi = document.createElement("span");
+                        extSpanLi.className = "song-ext";
+                        extSpanLi.textContent = f.ext;
+
+                        artistExt.appendChild(artistSpanLi);
+                        artistExt.appendChild(extSpanLi);
+                        
+                        infoDiv.appendChild(nameSpan);
+                        infoDiv.appendChild(artistExt);
+                        li.appendChild(cover);
+                        li.appendChild(infoDiv);
+
+                        li.onclick = () => {
+                            Array.from(document.querySelectorAll(".song")).forEach(e => e.classList.remove("active"));
+                            li.classList.add("active");
+
+                            songNameSpan.textContent = f.title;
+                            artistSpan.textContent = f.artist;
+                            extSpan.textContent = f.ext;
+                            nowPlaying.classList.add("active");
+                            playerCover.src = f.cover;
+                            document.title = `♪ ${f.title} – MAMS - Bangumi`;
+                            player.src = f.url;
+                            player.play();
+                        };
+
+                        songsUl.appendChild(li);
+                    });
+                    setBadges();
+                })
+                .catch(() => {
+                    songsUl.innerHTML = "";
+                    emptyState.classList.remove("hidden");
+                    songNameSpan.textContent = "–";
+                    artistSpan.textContent = "";
+                    extSpan.textContent = "";
+                    document.title = originalTitle;
+                });
+        }
+    </script>
+</body>
+
+</html>

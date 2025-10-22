@@ -1,0 +1,18 @@
+services:
+  music-server:
+    build: .
+    container_name: bangumi-music
+    ports:
+      - "3000:3000"
+    volumes:
+      - /Volumes/MAC-JST/MUSIC/bangumi:/music:ro # music folder
+      - ./server.js:/usr/src/app/server.js # backend code
+      - ./package.json:/usr/src/app/package.json
+      - ./package-lock.json:/usr/src/app/package-lock.json
+      - ./public:/usr/src/app/public # frontend static files
+      - ./public/covers:/usr/src/app/public/covers # covers folder
+      - /usr/src/app/node_modules # anonymous volume for npm modules
+    restart: unless-stopped
+
+volumes:
+  covers-data:
